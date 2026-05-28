@@ -1,0 +1,39 @@
+# PRD Slicing UI - QHome AI Assistant
+
+## 1. Tujuan Project
+
+Project ini bertujuan untuk membuat tampilan frontend **QHome AI Assistant** berdasarkan desain yang sudah diberikan. Halaman ini digunakan oleh user kontraktor untuk meng-upload atau mengirim file RAB, kemudian AI akan memproses data tersebut dan menampilkan hasil analisis item RAB terhadap katalog produk QHome.
+
+Fokus utama slicing adalah membuat layout dashboard/chat yang terdiri dari dua area utama:
+
+1. Panel kiri: Chat AI Assistant
+2. Panel kanan: Hasil Analisis RAB
+
+Panel kanan harus bisa **dibuka dan ditutup**, serta layout harus **responsif** untuk desktop, tablet, dan mobile.
+
+---
+
+## 2. Gambaran Umum Tampilan
+
+Halaman terdiri dari:
+
+- Header / Top Navigation
+- Sidebar chat di sebelah kiri
+- Panel hasil analisis di sebelah kanan
+- Input chat di bagian bawah panel kiri
+- Card statistik hasil analisis
+- Tabel hasil matching item RAB
+- Ringkasan anggaran
+- Tombol generate quotation
+- Workspace progress AI
+
+Secara desktop, tampilan menggunakan layout dua kolom:
+
+```txt
++------------------------------------------------------+
+| Header / Navbar                                      |
++----------------------+-------------------------------+
+| Chat AI Assistant    | Hasil Analisis RAB             |
+|                      |                               |
+|                      | Statistik, tabel, summary      |
++----------------------+-------------------------------+
