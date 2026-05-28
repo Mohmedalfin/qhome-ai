@@ -1,7 +1,8 @@
 const DEFAULT_API_BASE_URL = 'https://backend-aigentqpro-production.up.railway.app'
+const isVercelProduction = typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')
 
 export const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
+  import.meta.env.VITE_API_BASE_URL || (isVercelProduction ? '' : DEFAULT_API_BASE_URL)
 ).replace(/\/$/, '')
 
 export const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws')
