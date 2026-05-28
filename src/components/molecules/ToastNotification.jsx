@@ -10,14 +10,14 @@ export default function ToastNotification({ message, onClose }) {
   return (
     <div className={`toast-notification toast-notification--${message.type}`} role="status" aria-live="polite">
       <span className="toast-notification__icon">
-        <Icon name={iconName} size={18} />
+        <Icon name={iconName} size={16} />
       </span>
       <div className="toast-notification__content">
         <strong>{message.title}</strong>
         <p>{message.description}</p>
       </div>
       <button type="button" aria-label="Tutup notifikasi" onClick={onClose}>
-        <Icon name="x" size={20} />
+        <Icon name="x" size={16} />
       </button>
     </div>
   )
