@@ -322,28 +322,28 @@
 
 .toast-notification {
   position: fixed;
-  top: 24px;
-  right: 24px;
+  top: 18px;
+  right: 18px;
   z-index: 100;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 32px;
+  grid-template-columns: 34px minmax(0, 1fr) 28px;
   align-items: center;
-  gap: 14px;
-  width: min(460px, calc(100vw - 32px));
-  min-height: 88px;
-  padding: 18px 18px 18px 20px;
+  gap: 10px;
+  width: min(360px, calc(100vw - 28px));
+  min-height: 64px;
+  padding: 12px 12px 12px 14px;
   border: 1px solid rgba(208, 213, 221, 0.9);
-  border-radius: 22px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14);
   animation: toast-enter 220ms ease-out;
 }
 
 .toast-notification__icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
 }
 
@@ -365,16 +365,16 @@
   display: block;
   overflow: hidden;
   color: #252a31;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .toast-notification__content p {
-  margin: 5px 0 0;
+  margin: 3px 0 0;
   color: #009b72;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -385,8 +385,8 @@
 .toast-notification button {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 0;
   border-radius: 50%;
   color: #667085;
@@ -1604,16 +1604,16 @@
   }
 
   .toast-notification {
-    top: 14px;
-    right: 14px;
-    left: 14px;
+    top: 12px;
+    right: 12px;
+    left: 12px;
     width: auto;
-    min-height: 78px;
-    border-radius: 16px;
+    min-height: 62px;
+    border-radius: 14px;
   }
 
   .toast-notification__content strong {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .auth-card {
