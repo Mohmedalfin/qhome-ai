@@ -574,9 +574,9 @@
   display: grid;
   grid-template-columns: minmax(340px, 0.54fr) minmax(620px, 1fr);
   gap: 12px;
-  height: calc(100vh - 88px);
+  height: calc(100dvh - 88px);
   overflow: hidden;
-  padding: 0 14px 14px;
+  padding: 0;
 }
 
 .dashboard.chat-only {
@@ -603,9 +603,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   height: 100%;
-  padding: 20px 18px 16px;
+  padding: 18px 0 0;
   overflow: hidden;
   border-radius: 0 0 8px 8px;
 }
@@ -675,7 +675,7 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 0 22px;
 }
 
 .chat-scroll-area,
@@ -697,6 +697,8 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: min(920px, 100%);
+  margin: 0 auto;
 }
 
 .chat-processing-hint {
@@ -972,7 +974,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: min(920px, calc(100% - 44px));
   min-width: 0;
+  margin: 0 auto 14px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -982,7 +986,7 @@
 
 .chat-composer__controls {
   display: grid;
-  grid-template-columns: 46px 1fr 46px 46px;
+  grid-template-columns: minmax(0, 1fr) 46px 46px;
   align-items: end;
   gap: 10px;
   min-width: 0;
@@ -1311,11 +1315,14 @@
 .status-badge {
   display: inline-flex;
   justify-content: center;
+  align-items: center;
   min-width: 84px;
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .status-badge--available {
@@ -1539,8 +1546,8 @@
 
   .dashboard {
     grid-template-columns: 1fr;
-    height: calc(100vh - 88px);
-    padding: 0 14px 14px;
+    height: calc(100dvh - 88px);
+    padding: 0;
   }
 
   .dashboard>.result-panel {
@@ -1549,6 +1556,11 @@
 
   .chat-panel {
     height: 100%;
+    padding: 18px 12px max(12px, env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .mobile-result-sheet {
@@ -1660,14 +1672,22 @@
   }
 
   .dashboard {
-    height: calc(100vh - 78px);
-    padding: 0 10px 10px;
+    height: calc(100dvh - 78px);
+    padding: 0;
   }
 
   .chat-panel {
     height: 100%;
-    padding: 20px 14px 14px;
+    padding: 16px 10px max(12px, env(safe-area-inset-bottom));
     gap: 18px;
+  }
+
+  .chat-scroll-area {
+    padding: 0;
+  }
+
+  .chat-thread {
+    width: 100%;
   }
 
   .panel-title strong {
@@ -1688,11 +1708,13 @@
 
   .chat-composer {
     gap: 8px;
+    width: 100%;
     padding: 10px;
+    margin-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .chat-composer__controls {
-    grid-template-columns: 42px 1fr 42px 42px;
+    grid-template-columns: minmax(0, 1fr) 42px 42px;
     gap: 8px;
   }
 
@@ -1751,6 +1773,12 @@
     min-height: 96px;
   }
 
+  .rab-table-wrap {
+    overflow: visible;
+    border-radius: 14px;
+    background: #f8faf9;
+  }
+
   .rab-table,
   .rab-table tbody,
   .rab-table tr,
@@ -1763,8 +1791,15 @@
   }
 
   .rab-table tr {
-    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 14px;
+    margin: 8px;
+    padding: 12px;
     border-bottom: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
   }
 
   .rab-table tr:last-child {
@@ -1772,17 +1807,59 @@
   }
 
   .rab-table td {
-    display: grid;
-    grid-template-columns: 118px 1fr;
-    gap: 12px;
-    padding: 7px 0;
+    display: block;
+    min-width: 0;
+    padding: 0;
     border-bottom: 0;
     font-size: 14px;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .rab-table td[data-label="Item"] {
+    grid-column: 1;
+  }
+
+  .rab-table td[data-label="Qty"] {
+    grid-column: 2;
+    min-width: 58px;
+    text-align: right;
+  }
+
+  .rab-table td[data-label="Produk QHome"] {
+    grid-column: 1 / -1;
+  }
+
+  .rab-table td[data-label="Harga"] {
+    grid-column: 1;
+  }
+
+  .rab-table td[data-label="Status"] {
+    grid-column: 2;
+    align-self: end;
+    text-align: right;
   }
 
   .rab-table td::before {
     content: attr(data-label);
+    display: block;
+    margin-bottom: 3px;
     color: var(--muted);
+    font-size: 12px;
     font-weight: 700;
+  }
+
+  .rab-table__product {
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  .rab-table td small {
+    margin-top: 5px;
+  }
+
+  .rab-table .status-badge {
+    min-width: 76px;
   }
 }

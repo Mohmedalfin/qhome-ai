@@ -84,7 +84,6 @@ export default function ChatComposer({ disabled = false, onSendMessage }) {
       )}
 
       <div className="chat-composer__controls">
-        <IconButton icon="plus" label="Tambah PDF atau foto" onClick={openFilePicker} disabled={disabled} />
         <input
           type="file"
           accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp"
