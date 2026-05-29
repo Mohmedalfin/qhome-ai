@@ -406,7 +406,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  width: min(720px, calc(100vw - 56px));
+  width: min(520px, calc(100vw - 56px));
   min-height: 82px;
   padding: 10px 20px;
   border: 1px solid rgba(167, 219, 202, 0.76);
@@ -437,6 +437,7 @@
   color: #2b463f;
   font-size: 14px;
   line-height: 1.45;
+  align-items: center;
 }
 
 @keyframes upload-hint-enter {

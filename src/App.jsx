@@ -44,6 +44,47 @@ const combinedProcessingMessages = [
 ]
 
 const initialMessages = []
+const contextRelatedKeywords = [
+  'rab',
+  'qhome',
+  'proyek',
+  'project',
+  'barang',
+  'produk',
+  'item',
+  'material',
+  'katalog',
+  'harga',
+  'diskon',
+  'discount',
+  'potongan',
+  'nego',
+  'negosiasi',
+  'tawar',
+  'murah',
+  'mahal',
+  'turun',
+  'kurang',
+  'deal',
+  'penawaran',
+  'alternatif',
+  'lain',
+  'pengganti',
+  'spesifikasi',
+  'stok',
+  'tersedia',
+  'ketersediaan',
+  'subtotal',
+  'total',
+  'qty',
+  'quantity',
+  'jumlah',
+  'anggaran',
+  'budget',
+  'kontraktor',
+  'matching',
+  'analisis',
+]
 
 function getMessageTime() {
   return new Intl.DateTimeFormat('id-ID', {
@@ -67,6 +108,62 @@ function formatCurrency(value) {
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(Number(value) || 0)
+}
+
+function normalizeChatText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getContextSearchTerms(context) {
+  const extractionItems = context?.extraction?.items || []
+  const foundItems = context?.matching?.found_items || []
+  const notFoundItems = context?.matching?.not_found_items || []
+
+  return [
+    context?.extraction?.project_name,
+    context?.extraction?.contractor_name,
+    ...extractionItems.map((item) => item.item_name),
+    ...foundItems.flatMap((item) => [
+      item.rab_item_name,
+      item.best_match_qhome?.name,
+      item.best_match_qhome?.brand,
+      item.best_match_qhome?.category,
+    ]),
+    ...notFoundItems.map((item) => item.rab_item_name || item.item_name),
+  ]
+    .filter(Boolean)
+    .map(normalizeChatText)
+    .filter((term) => term.length >= 4)
+}
+
+function shouldUseAnalysisContext(message, context) {
+  if (!context) {
+    return false
+  }
+
+  const normalizedMessage = normalizeChatText(message)
+
+  if (!normalizedMessage) {
+    return false
+  }
+
+  const hasContextKeyword = contextRelatedKeywords.some((keyword) => normalizedMessage.includes(keyword))
+
+  if (hasContextKeyword) {
+    return true
+  }
+
+  const hasContextTerm = getContextSearchTerms(context).some((term) => normalizedMessage.includes(term))
+
+  if (hasContextTerm) {
+    return true
+  }
+
+  return false
 }
 
 function buildAnalysisStats(context) {
@@ -215,14 +312,16 @@ function App() {
     setMessages((currentMessages) => [...currentMessages, nextUserMessage])
 
     if (!file) {
-      setProcessingMessages(activeAnalysisContext ? negotiationProcessingMessages : generalChatProcessingMessages)
+      const shouldAttachContext = shouldUseAnalysisContext(cleanText, activeAnalysisContext)
+
+      setProcessingMessages(shouldAttachContext ? negotiationProcessingMessages : generalChatProcessingMessages)
       setIsAgentThinking(true)
 
       try {
         const answer = await sendNegotiationMessage({
           message: cleanText,
-          analysisContext: activeAnalysisContext,
-          contextMode: activeAnalysisContext ? 'auto' : 'none',
+          analysisContext: shouldAttachContext ? activeAnalysisContext : null,
+          contextMode: shouldAttachContext ? 'auto' : 'none',
           onStatus: (statusMessage) => setProcessingMessages([statusMessage]),
         })
 

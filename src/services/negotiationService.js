@@ -36,6 +36,114 @@ const NODE_STATUS_LABELS = [
     label: 'Membaca konteks RAB...',
   },
 ]
+const METADATA_ONLY_KEYS = new Set([
+  'is_off_topic',
+  'intent_category',
+  'extracted_discount',
+  'mentioned_products',
+  'reason',
+])
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isMetadataOnlyMessage(parsedMessage) {
+  if (!isPlainObject(parsedMessage)) {
+    return false
+  }
+
+  const messageKeys = Object.keys(parsedMessage)
+
+  return messageKeys.length > 0 && messageKeys.every((key) => METADATA_ONLY_KEYS.has(key))
+}
+
+function parseLeadingJsonObject(rawContent) {
+  const trimmedContent = String(rawContent || '').trimStart()
+
+  if (!trimmedContent.startsWith('{')) {
+    return null
+  }
+
+  let depth = 0
+  let isInsideString = false
+  let isEscaped = false
+
+  for (let index = 0; index < trimmedContent.length; index += 1) {
+    const character = trimmedContent[index]
+
+    if (isInsideString) {
+      if (isEscaped) {
+        isEscaped = false
+      } else if (character === '\\') {
+        isEscaped = true
+      } else if (character === '"') {
+        isInsideString = false
+      }
+      continue
+    }
+
+    if (character === '"') {
+      isInsideString = true
+      continue
+    }
+
+    if (character === '{') {
+      depth += 1
+    }
+
+    if (character === '}') {
+      depth -= 1
+
+      if (depth === 0) {
+        try {
+          return {
+            json: JSON.parse(trimmedContent.slice(0, index + 1)),
+            rest: trimmedContent.slice(index + 1),
+          }
+        } catch {
+          return null
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+function stripLeadingMetadata(rawContent) {
+  if (typeof rawContent !== 'string') {
+    return rawContent
+  }
+
+  let cleanContent = rawContent
+
+  while (true) {
+    const leadingJsonObject = parseLeadingJsonObject(cleanContent)
+
+    if (!leadingJsonObject || !isMetadataOnlyMessage(leadingJsonObject.json)) {
+      return cleanContent
+    }
+
+    cleanContent = leadingJsonObject.rest.trimStart()
+  }
+}
+
+function createContentEvent(type, content) {
+  const cleanContent = stripLeadingMetadata(content)
+
+  if (!cleanContent) {
+    return {
+      type: 'ignore',
+      content: '',
+    }
+  }
+
+  return {
+    type,
+    content: cleanContent,
+  }
+}
 
 function getMessageContent(parsedMessage, fallbackContent) {
   return (
@@ -136,6 +244,10 @@ function createContextSummary(context) {
 }
 
 function createContextualMessage(message, analysisContext, contextMode) {
+  if (contextMode === 'none') {
+    return message
+  }
+
   const rabContextText = createRabContextText(analysisContext)
 
   if (!rabContextText) {
@@ -159,8 +271,38 @@ function createContextualMessage(message, analysisContext, contextMode) {
 
 function parseNegotiationEvent(eventData) {
   if (typeof eventData === 'string') {
+    const leadingJsonObject = parseLeadingJsonObject(eventData)
+
+    if (leadingJsonObject && isMetadataOnlyMessage(leadingJsonObject.json)) {
+      const cleanContent = leadingJsonObject.rest.trimStart()
+
+      if (!cleanContent) {
+        return {
+          type: 'ignore',
+          content: '',
+        }
+      }
+
+      return {
+        type: 'chunk',
+        content: cleanContent,
+      }
+    }
+
     try {
       const parsedMessage = JSON.parse(eventData)
+
+      if (typeof parsedMessage === 'string') {
+        return createContentEvent('chunk', parsedMessage)
+      }
+
+      if (isMetadataOnlyMessage(parsedMessage)) {
+        return {
+          type: 'ignore',
+          content: '',
+        }
+      }
+
       const eventType = String(parsedMessage.type || '').toLowerCase()
       const eventStatus = String(parsedMessage.status || parsedMessage.data?.status || '').toLowerCase()
       const content = FINAL_EVENT_TYPES.has(eventType) ? getMessageContent(parsedMessage, '') : getMessageContent(parsedMessage, eventData)
@@ -171,10 +313,7 @@ function parseNegotiationEvent(eventData) {
         eventStatus === 'processing' ||
         isProgressContent(content)
       ) {
-        return {
-          type: 'status',
-          content: formatStatusMessage(content),
-        }
+        return createContentEvent('status', formatStatusMessage(content))
       }
 
       if (
@@ -183,28 +322,16 @@ function parseNegotiationEvent(eventData) {
         eventStatus === 'completed' ||
         eventStatus === 'done'
       ) {
-        return {
-          type: 'final',
-          content,
-        }
+        return createContentEvent('final', content)
       }
 
-      return {
-        type: 'chunk',
-        content: getTokenContent(parsedMessage, content),
-      }
+      return createContentEvent('chunk', getTokenContent(parsedMessage, content))
     } catch {
       if (isProgressContent(eventData)) {
-        return {
-          type: 'status',
-          content: formatStatusMessage(eventData),
-        }
+        return createContentEvent('status', formatStatusMessage(eventData))
       }
 
-      return {
-        type: 'chunk',
-        content: eventData,
-      }
+      return createContentEvent('chunk', eventData)
     }
   }
 
@@ -212,6 +339,10 @@ function parseNegotiationEvent(eventData) {
     type: 'final',
     content: 'Saya sudah menerima pertanyaan Anda, tetapi format balasan belum dikenali.',
   }
+}
+
+function cleanFinalAnswer(answer) {
+  return String(stripLeadingMetadata(answer) || '').trim()
 }
 
 export function sendNegotiationMessage({
@@ -251,8 +382,10 @@ export function sendNegotiationMessage({
       timeoutId = setTimeout(() => {
         socket.close()
 
-        if (answerBuffer.trim()) {
-          settle(resolve, answerBuffer.trim())
+        const cleanAnswer = cleanFinalAnswer(answerBuffer)
+
+        if (cleanAnswer) {
+          settle(resolve, cleanAnswer)
           return
         }
 
@@ -263,13 +396,14 @@ export function sendNegotiationMessage({
     resetTimeout()
 
     socket.addEventListener('open', () => {
+      const activeContext = contextMode === 'none' ? null : analysisContext
       const payload = {
         type: 'user_message',
-        message: createContextualMessage(message, analysisContext, contextMode),
+        message: createContextualMessage(message, activeContext, contextMode),
         user_message: message,
-        context_mode: analysisContext ? contextMode : 'none',
+        context_mode: activeContext ? contextMode : 'none',
       }
-      const contextSummary = createContextSummary(analysisContext)
+      const contextSummary = createContextSummary(activeContext)
 
       if (contextSummary) {
         payload.analysis_context = contextSummary
@@ -289,13 +423,17 @@ export function sendNegotiationMessage({
         return
       }
 
+      if (negotiationEvent.type === 'ignore') {
+        return
+      }
+
       if (negotiationEvent.type === 'chunk') {
         answerBuffer += negotiationEvent.content
         return
       }
 
-      const finalAnswer = answerBuffer + negotiationEvent.content
-      settle(resolve, finalAnswer.trim())
+      const finalAnswer = cleanFinalAnswer(answerBuffer + negotiationEvent.content)
+      settle(resolve, finalAnswer)
     })
 
     socket.addEventListener('error', () => {
@@ -303,8 +441,10 @@ export function sendNegotiationMessage({
     })
 
     socket.addEventListener('close', (event) => {
-      if (answerBuffer.trim()) {
-        settle(resolve, answerBuffer.trim())
+      const cleanAnswer = cleanFinalAnswer(answerBuffer)
+
+      if (cleanAnswer) {
+        settle(resolve, cleanAnswer)
         return
       }
 
