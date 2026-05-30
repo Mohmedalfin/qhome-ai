@@ -220,6 +220,7 @@ function createContextSummary(context) {
 
   return {
     analysis_id: context?.analysis_id,
+    conversation_id: context?.conversation_id,
     file_name: context?.file_name,
     extraction: {
       project_name: extraction.project_name,
@@ -349,6 +350,7 @@ export function sendNegotiationMessage({
   message,
   analysisContext,
   contextMode = 'auto',
+  conversationId,
   onStatus,
 }) {
   const accessToken = getAuthSession()?.access_token
@@ -359,7 +361,14 @@ export function sendNegotiationMessage({
 
   return new Promise((resolve, reject) => {
     const wsUrl = new URL(`${WS_BASE_URL}${API_ENDPOINTS.ws.negotiation}`)
+    const activeConversationId = conversationId || analysisContext?.conversation_id
+
     wsUrl.searchParams.set('token', accessToken)
+
+    if (activeConversationId) {
+      wsUrl.searchParams.set('conversation_id', activeConversationId)
+      wsUrl.searchParams.set('thread_id', activeConversationId)
+    }
 
     const socket = new WebSocket(wsUrl.toString())
     let isSettled = false
@@ -404,6 +413,11 @@ export function sendNegotiationMessage({
         context_mode: activeContext ? contextMode : 'none',
       }
       const contextSummary = createContextSummary(activeContext)
+
+      if (activeConversationId) {
+        payload.conversation_id = activeConversationId
+        payload.thread_id = activeConversationId
+      }
 
       if (contextSummary) {
         payload.analysis_context = contextSummary

@@ -9,6 +9,14 @@ function createAnalysisId() {
   return `anl_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
 
+function createConversationId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `thread_${crypto.randomUUID()}`
+  }
+
+  return `thread_${Date.now()}_${Math.random().toString(16).slice(2)}`
+}
+
 function getResponseData(responseBody) {
   return responseBody?.data || responseBody || {}
 }
@@ -67,6 +75,7 @@ export function createAnalysisContext({ file, extractionResponse, matchingRespon
 
   return {
     analysis_id: createAnalysisId(),
+    conversation_id: createConversationId(),
     file_name: file?.name || 'RAB',
     extraction: {
       project_name: extraction.project_name || 'Tidak Diketahui',

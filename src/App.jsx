@@ -7,10 +7,11 @@ import Login from './components/Login'
 import Register from './components/Register'
 import ToastNotification from './components/molecules/ToastNotification'
 import UploadHintBanner from './components/molecules/UploadHintBanner'
-import { hasAuthSession } from './services/authStorage'
+import { clearAuthSession, getAuthSession, hasAuthSession } from './services/authStorage'
 import { getChatHistorySnapshot, saveChatHistorySnapshot } from './services/chatHistoryStorage'
 import { processRabFile } from './services/analysisService'
 import { sendNegotiationMessage } from './services/negotiationService'
+import { generateInvoice, getPrimaryInvoice } from './services/invoiceService'
 import './App.css'
 
 const workspaceSteps = [
@@ -102,6 +103,40 @@ function createMessageId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+function createConversationId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `thread_${crypto.randomUUID()}`
+  }
+
+  return `thread_${Date.now()}_${Math.random().toString(16).slice(2)}`
+}
+
+function ensureAnalysisConversation(context) {
+  if (!context) {
+    return null
+  }
+
+  if (context.conversation_id) {
+    return context
+  }
+
+  return {
+    ...context,
+    conversation_id: createConversationId(),
+  }
+}
+
+function markConversationReady(context) {
+  if (!context) {
+    return null
+  }
+
+  return {
+    ...context,
+    conversation_ready: true,
+  }
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -164,6 +199,31 @@ function shouldUseAnalysisContext(message, context) {
   }
 
   return false
+}
+
+function getInvoiceCompanyName(context) {
+  const contractorName = context?.extraction?.contractor_name
+  const authSession = getAuthSession()
+
+  return [
+    contractorName,
+    authSession?.company_name,
+    authSession?.company,
+    authSession?.full_name,
+    authSession?.user?.company_name,
+  ].find((value) => value && value !== 'Tidak Diketahui') || 'QHome Client'
+}
+
+function getInvoiceDisabledReason(context) {
+  if (!context) {
+    return 'Analisis RAB belum tersedia.'
+  }
+
+  if (!context.conversation_ready) {
+    return 'Lakukan negosiasi di chat terlebih dahulu sebelum membuat quotation.'
+  }
+
+  return ''
 }
 
 function buildAnalysisStats(context) {
@@ -238,8 +298,10 @@ function App() {
   const [isAgentThinking, setIsAgentThinking] = useState(false)
   const [processingMessages, setProcessingMessages] = useState(rabProcessingMessages)
   const [activeAnalysisContext, setActiveAnalysisContext] = useState(
-    () => restoredChatHistoryRef.current.activeAnalysisContext,
+    () => ensureAnalysisConversation(restoredChatHistoryRef.current.activeAnalysisContext),
   )
+  const [invoiceDraft, setInvoiceDraft] = useState(() => restoredChatHistoryRef.current.invoiceDraft)
+  const [isInvoiceGenerating, setIsInvoiceGenerating] = useState(false)
   const [toastMessage, setToastMessage] = useState(null)
   const toastTimeoutRef = useRef(null)
 
@@ -263,9 +325,10 @@ function App() {
     saveChatHistorySnapshot({
       messages,
       activeAnalysisContext,
+      invoiceDraft,
       isResultOpen,
     })
-  }, [activeAnalysisContext, isResultOpen, messages])
+  }, [activeAnalysisContext, invoiceDraft, isResultOpen, messages])
 
   const navigate = (nextRoute) => {
     window.history.pushState({}, '', nextRoute)
@@ -290,6 +353,16 @@ function App() {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current)
     }
+  }
+
+  const handleAuthError = (error) => {
+    if (error.status !== 401 && error.status !== 403) {
+      return false
+    }
+
+    clearAuthSession()
+    navigate('/login')
+    return true
   }
 
   const handleSendMessage = async ({ text, file }) => {
@@ -322,8 +395,13 @@ function App() {
           message: cleanText,
           analysisContext: shouldAttachContext ? activeAnalysisContext : null,
           contextMode: shouldAttachContext ? 'auto' : 'none',
+          conversationId: shouldAttachContext ? activeAnalysisContext?.conversation_id : null,
           onStatus: (statusMessage) => setProcessingMessages([statusMessage]),
         })
+
+        if (shouldAttachContext) {
+          setActiveAnalysisContext((currentContext) => markConversationReady(currentContext))
+        }
 
         setMessages((currentMessages) => [
           ...currentMessages,
@@ -336,6 +414,8 @@ function App() {
           },
         ])
       } catch (error) {
+        const isAuthError = handleAuthError(error)
+
         setMessages((currentMessages) => [
           ...currentMessages,
           {
@@ -347,7 +427,7 @@ function App() {
         ])
         showToast({
           type: 'error',
-          title: 'Chat gagal',
+          title: isAuthError ? 'Sesi berakhir' : 'Chat gagal',
           description: error.message,
         })
       } finally {
@@ -361,17 +441,21 @@ function App() {
 
     try {
       const { context } = await processRabFile(file)
+      const nextAnalysisContext = ensureAnalysisConversation(context)
 
-      setActiveAnalysisContext(context)
+      setActiveAnalysisContext(nextAnalysisContext)
+      setInvoiceDraft(null)
 
       if (cleanText) {
         const answer = await sendNegotiationMessage({
           message: cleanText,
-          analysisContext: context,
+          analysisContext: nextAnalysisContext,
           contextMode: 'rab',
+          conversationId: nextAnalysisContext.conversation_id,
           onStatus: (statusMessage) => setProcessingMessages([statusMessage]),
         })
 
+        setActiveAnalysisContext(markConversationReady(nextAnalysisContext))
         setMessages((currentMessages) => [
           ...currentMessages,
           {
@@ -402,6 +486,8 @@ function App() {
         description: 'Hasil matching berhasil diproses',
       })
     } catch (error) {
+      const isAuthError = handleAuthError(error)
+
       setMessages((currentMessages) => [
         ...currentMessages,
         {
@@ -413,11 +499,58 @@ function App() {
       ])
       showToast({
         type: 'error',
-        title: 'Analisis gagal',
+        title: isAuthError ? 'Sesi berakhir' : 'Analisis gagal',
         description: error.message,
       })
     } finally {
       setIsAgentThinking(false)
+    }
+  }
+
+  const handleGenerateInvoice = async () => {
+    if (!activeAnalysisContext) {
+      showToast({
+        type: 'error',
+        title: 'Quotation belum siap',
+        description: 'Analisis RAB belum tersedia.',
+      })
+      return
+    }
+
+    if (!activeAnalysisContext.conversation_ready) {
+      showToast({
+        type: 'error',
+        title: 'Negosiasi belum siap',
+        description: 'Kirim minimal satu pesan negosiasi terkait RAB sebelum membuat quotation.',
+      })
+      return
+    }
+
+    setIsInvoiceGenerating(true)
+
+    try {
+      const response = await generateInvoice({
+        conversationId: activeAnalysisContext.conversation_id,
+        companyName: getInvoiceCompanyName(activeAnalysisContext),
+      })
+      const nextInvoiceDraft = getPrimaryInvoice(response)
+
+      setInvoiceDraft(nextInvoiceDraft)
+      showToast({
+        type: 'success',
+        title: 'Quotation dibuat',
+        description: response.message || 'Invoice draft siap ditinjau.',
+      })
+    } catch (error) {
+      const isAuthError = handleAuthError(error)
+
+      showToast({
+        type: 'error',
+        title: isAuthError ? 'Sesi berakhir' : 'Generate quotation gagal',
+        description: error.message,
+      })
+    } finally {
+      setIsInvoiceGenerating(false)
     }
   }
 
@@ -465,19 +598,29 @@ function App() {
         {isResultOpen && activeAnalysisContext && (
           <ResultPanel
             context={activeAnalysisContext}
+            invoice={invoiceDraft}
+            invoiceDisabledReason={getInvoiceDisabledReason(activeAnalysisContext)}
+            isInvoiceDisabled={!activeAnalysisContext.conversation_ready}
+            isInvoiceGenerating={isInvoiceGenerating}
             stats={buildAnalysisStats(activeAnalysisContext)}
             items={buildRabTableItems(activeAnalysisContext)}
             onClose={() => setIsResultOpen(false)}
+            onGenerateInvoice={handleGenerateInvoice}
             steps={workspaceSteps}
           />
         )}
       </main>
       <MobileResultSheet
         context={activeAnalysisContext}
+        invoice={invoiceDraft}
+        invoiceDisabledReason={getInvoiceDisabledReason(activeAnalysisContext)}
         isOpen={isResultOpen && Boolean(activeAnalysisContext)}
+        isInvoiceDisabled={!activeAnalysisContext?.conversation_ready}
+        isInvoiceGenerating={isInvoiceGenerating}
         stats={buildAnalysisStats(activeAnalysisContext)}
         items={buildRabTableItems(activeAnalysisContext)}
         onClose={() => setIsResultOpen(false)}
+        onGenerateInvoice={handleGenerateInvoice}
         steps={workspaceSteps}
       />
       <ToastNotification message={toastMessage} onClose={closeToast} />

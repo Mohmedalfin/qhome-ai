@@ -19,6 +19,10 @@ export const API_ENDPOINTS = {
     uploadRab: '/api/v1/b2b/upload-rab',
     matchRab: '/api/v1/b2b/match-rab',
   },
+  invoices: {
+    generate: '/api/v1/invoices/generate-invoice',
+    me: '/api/v1/invoices/me',
+  },
   ws: {
     negotiation: '/ws/negotiation',
   },

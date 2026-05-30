@@ -48,6 +48,7 @@ export default function Login({ onNavigate, onNotify }) {
       })
       redirectTimeoutRef.current = setTimeout(() => {
         onNavigate('/qhome')
+        window.location.reload()
       }, 1100)
     } catch (error) {
       onNotify({

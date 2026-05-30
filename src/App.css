@@ -1441,6 +1441,25 @@
   line-height: 1.35;
 }
 
+.quotation-card__invoice {
+  display: grid;
+  gap: 4px;
+  color: #16433d;
+}
+
+.quotation-card__invoice span,
+.quotation-card__invoice small {
+  color: #4a6e67;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quotation-card__invoice strong {
+  font-size: 16px;
+  font-weight: 900;
+  word-break: break-word;
+}
+
 .primary-button {
   width: 100%;
   min-height: 48px;
@@ -1453,6 +1472,12 @@
   color: white;
   background: linear-gradient(180deg, #0d806b, #075f50);
   font-weight: 800;
+  text-decoration: none;
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .workspace-card header {

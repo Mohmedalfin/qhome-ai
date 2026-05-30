@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../config/api'
-import { getAuthSession } from './authStorage'
+import { clearAuthSession, getAuthSession } from './authStorage'
 
 export async function parseResponse(response) {
   const contentType = response.headers.get('content-type')
@@ -32,6 +32,10 @@ export function getApiErrorMessage(responseBody, fallbackMessage) {
   return fallbackMessage
 }
 
+function isAuthErrorStatus(status) {
+  return status === 401 || status === 403
+}
+
 function getAuthHeader() {
   const accessToken = getAuthSession()?.access_token
 
@@ -61,7 +65,19 @@ export async function apiFetch(endpoint, options = {}) {
   const responseBody = await parseResponse(response)
 
   if (!response.ok) {
-    throw new Error(getApiErrorMessage(responseBody, fallbackError))
+    const error = new Error(
+      isAuthErrorStatus(response.status)
+        ? 'Sesi login tidak valid atau sudah kedaluwarsa. Silakan login ulang.'
+        : getApiErrorMessage(responseBody, fallbackError),
+    )
+
+    error.status = response.status
+
+    if (isAuthErrorStatus(response.status)) {
+      clearAuthSession()
+    }
+
+    throw error
   }
 
   return responseBody

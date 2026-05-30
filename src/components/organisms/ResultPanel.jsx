@@ -5,7 +5,18 @@ import BudgetSummary from '../molecules/BudgetSummary'
 import QuotationCard from '../molecules/QuotationCard'
 import WorkspaceCard from '../molecules/WorkspaceCard'
 
-export default function ResultPanel({ context, stats, items, onClose, steps }) {
+export default function ResultPanel({
+  context,
+  invoiceDisabledReason,
+  invoice,
+  isInvoiceDisabled,
+  isInvoiceGenerating,
+  items,
+  onClose,
+  onGenerateInvoice,
+  stats,
+  steps,
+}) {
   const extraction = context?.extraction || {}
 
   return (
@@ -47,7 +58,13 @@ export default function ResultPanel({ context, stats, items, onClose, steps }) {
 
       <div className="result-panel__bottom">
         <BudgetSummary context={context} />
-        <QuotationCard />
+        <QuotationCard
+          disabledReason={invoiceDisabledReason}
+          invoice={invoice}
+          isDisabled={isInvoiceDisabled}
+          isGenerating={isInvoiceGenerating}
+          onGenerate={onGenerateInvoice}
+        />
         <WorkspaceCard steps={steps} />
       </div>
     </section>
